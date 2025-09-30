@@ -1029,10 +1029,13 @@ mixin _FeedSection on State<MenuScreen> {
     String? activity;
     String? checkIn;
     String? vibe;
-    final metaPattern = RegExp(r'^(?:[\\u2022\\-*]\\s*)?(.+?):\\s*(.+)\$', caseSensitive: false);
+    final metaPattern = RegExp(
+      r'^(?:[-•*]\s*)?([^:]+):\s*(.+)$',
+      caseSensitive: false,
+    );
     for (final line in lines) {
       final trimmed = line.trim();
-      final sanitized = trimmed.replaceFirst(RegExp(r'^[\\u2022\\-*]\\s*'), '');
+      final sanitized = trimmed.replaceFirst(RegExp(r'^[-•*]\s*'), '');
       final match = metaPattern.firstMatch(trimmed) ?? metaPattern.firstMatch(sanitized);
       if (match != null) {
         final key = match.group(1)!.toLowerCase();
