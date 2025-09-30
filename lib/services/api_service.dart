@@ -18,7 +18,11 @@ class ApiService {
   // You can override via: --dart-define=API_BASE_URL=http://192.168.x.x/bot/server/public
   static final String baseUrl = _detectBaseUrl();
 
-  static get uploadBaseUrl => null;
+  static String get uploadBaseUrl {
+    final root = baseUrl;
+    if (root.endsWith('/public')) return root;
+    return '$root/public';
+  }
 
   static String _detectBaseUrl() {
     const fromEnv = String.fromEnvironment('API_BASE_URL', defaultValue: '');

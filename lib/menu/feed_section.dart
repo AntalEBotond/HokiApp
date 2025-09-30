@@ -1014,7 +1014,9 @@ mixin _FeedSection on State<MenuScreen> {
   String _normalizeUploadUrl(String? url) {
     if (url == null || url.isEmpty) return '';
     if (url.startsWith('http')) return url;
-    return ApiService.uploadBaseUrl + url;
+    final base = ApiService.uploadBaseUrl;
+    final needsSlash = !url.startsWith('/');
+    return needsSlash ? '$base/$url' : '$base$url';
   }
 
   _PostContentParts _parsePostContent(String? raw) {
@@ -1027,10 +1029,11 @@ mixin _FeedSection on State<MenuScreen> {
     String? activity;
     String? checkIn;
     String? vibe;
-    final metaPattern = RegExp(r'^•\\s*(.+?):\\s*(.+)\$', caseSensitive: false);
+    final metaPattern = RegExp(r'^(?:[\\u2022\\-*]\\s*)?(.+?):\\s*(.+)\$', caseSensitive: false);
     for (final line in lines) {
       final trimmed = line.trim();
-      final match = metaPattern.firstMatch(trimmed);
+      final sanitized = trimmed.replaceFirst(RegExp(r'^[\\u2022\\-*]\\s*'), '');
+      final match = metaPattern.firstMatch(trimmed) ?? metaPattern.firstMatch(sanitized);
       if (match != null) {
         final key = match.group(1)!.toLowerCase();
         final value = match.group(2)!.trim();
@@ -1045,8 +1048,9 @@ mixin _FeedSection on State<MenuScreen> {
         }
         continue;
       }
-      if (trimmed.startsWith('• Vibe palette')) {
-        vibe = trimmed.replaceFirst('•', '').trim();
+      final lower = sanitized.toLowerCase();
+      if (lower.startsWith('vibe palette') || lower.startsWith('vibe:')) {
+        vibe = sanitized;
         continue;
       }
       bodyLines.add(line);
@@ -1229,7 +1233,7 @@ mixin _FeedSection on State<MenuScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _postHeader(context, post, parts),
-              if (bodyText.isNotEmpty) ...[
+              if (bodyText.isNotEmpty || vibePalette != null) ...[
                 const SizedBox(height: 12),
                 _PostBodyBlock(text: bodyText, palette: vibePalette),
               ],
@@ -1273,25 +1277,16 @@ mixin _FeedSection on State<MenuScreen> {
     final sticker = _stickerProviderFor(user?['sticker'] ?? user?['avatar_sticker']);
     final createdAt = post['created_at'] as String?;
     final visibility = post['visibility'] as String? ?? 'public';
-    final chips = <Widget>[];
     final timeAgo = _timeAgo(createdAt);
-    if (timeAgo.isNotEmpty) {
-      chips.add(
-        _PostMetaInfoChip(
-          icon: Icons.access_time,
-          label: timeAgo,
-          trailing: Icon(_visibilityIcon(visibility), size: 14, color: theme.hintColor),
-        ),
-      );
-    }
+    final metaPills = <Widget>[];
     if (parts.mood != null && parts.mood!.isNotEmpty) {
-      chips.add(_PostMetaPill(icon: Icons.emoji_emotions_outlined, label: parts.mood!, color: theme.colorScheme.primary));
+      metaPills.add(_PostMetaPill(icon: Icons.emoji_emotions_outlined, label: parts.mood!, color: theme.colorScheme.primary));
     }
     if (parts.activity != null && parts.activity!.isNotEmpty) {
-      chips.add(_PostMetaPill(icon: Icons.flash_on, label: parts.activity!, color: theme.colorScheme.secondary));
+      metaPills.add(_PostMetaPill(icon: Icons.flash_on, label: parts.activity!, color: theme.colorScheme.secondary));
     }
     if (parts.checkIn != null && parts.checkIn!.isNotEmpty) {
-      chips.add(_PostMetaPill(icon: Icons.place_outlined, label: parts.checkIn!, color: theme.colorScheme.tertiary));
+      metaPills.add(_PostMetaPill(icon: Icons.place_outlined, label: parts.checkIn!, color: theme.colorScheme.tertiary));
     }
 
     return Row(
@@ -1310,13 +1305,23 @@ mixin _FeedSection on State<MenuScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(displayName, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
-              const SizedBox(height: 6),
-              Wrap(
-                spacing: 8,
-                runSpacing: 6,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: chips,
-              ),
+              if (timeAgo.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                _PostMetaInfoChip(
+                  icon: Icons.access_time,
+                  label: timeAgo,
+                  trailing: Icon(_visibilityIcon(visibility), size: 14, color: theme.hintColor),
+                ),
+              ],
+              if (metaPills.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: metaPills,
+                ),
+              ],
             ],
           ),
         ),
@@ -3527,37 +3532,67 @@ class _PostBodyBlock extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final hasPalette = palette != null && palette!.isNotEmpty;
+    final colors = hasPalette
+        ? palette!
+            .map((color) =>
+                theme.brightness == Brightness.light ? Color.alphaBlend(Colors.white.withOpacity(0.42), color) : color)
+            .toList(growable: false)
+        : null;
     final decoration = BoxDecoration(
       borderRadius: BorderRadius.circular(20),
       gradient: hasPalette
-          ? LinearGradient(colors: palette!, begin: Alignment.topLeft, end: Alignment.bottomRight)
+          ? LinearGradient(colors: colors!, begin: Alignment.topLeft, end: Alignment.bottomRight)
           : null,
-      color: hasPalette ? null : Colors.white.withOpacity(0.05),
-      border: Border.all(color: Colors.white.withOpacity(hasPalette ? 0.18 : 0.08)),
+      color: hasPalette ? null : theme.colorScheme.surfaceVariant.withOpacity(0.18),
+      border: Border.all(
+        color: hasPalette
+            ? (theme.brightness == Brightness.light
+                ? Colors.black.withOpacity(0.04)
+                : Colors.white.withOpacity(0.18))
+            : Colors.white.withOpacity(0.08),
+      ),
       boxShadow: hasPalette
           ? [
               BoxShadow(
-                color: palette!.last.withOpacity(0.25),
+                color: (theme.brightness == Brightness.light ? colors!.last : colors!.last).withOpacity(0.22),
+                blurRadius: 24,
+                offset: const Offset(0, 16),
+              ),
+            ]
+          : [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.08),
                 blurRadius: 20,
                 offset: const Offset(0, 12),
               ),
-            ]
-          : null,
+            ],
     );
 
     final textStyle = hasPalette
         ? theme.textTheme.bodyMedium?.copyWith(
-              color: Colors.white,
+              color: theme.brightness == Brightness.light ? Colors.black.withOpacity(0.85) : Colors.white,
               height: 1.5,
-              fontWeight: FontWeight.w500,
+              fontWeight: FontWeight.w600,
             )
         : theme.textTheme.bodyMedium?.copyWith(height: 1.5);
 
+    final trimmed = text.trim();
+    final child = trimmed.isEmpty
+        ? const SizedBox(height: 72)
+        : Text(
+            text,
+            style: textStyle,
+          );
+
+    final padding = trimmed.isEmpty
+        ? const EdgeInsets.symmetric(horizontal: 18, vertical: 24)
+        : const EdgeInsets.symmetric(horizontal: 18, vertical: 16);
+
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+      padding: padding,
       decoration: decoration,
-      child: Text(text, style: textStyle),
+      child: child,
     );
   }
 }

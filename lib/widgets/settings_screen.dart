@@ -78,36 +78,15 @@ class SettingsScreen extends StatelessWidget {
                       controller.setThemePreference(value.first);
                     },
                   ),
-                  const SizedBox(height: 16),
-                  if (controller.themePreference != ThemePreference.scheduled)
-                    SegmentedButton<ThemeMode>(
-                      segments: [
-                        ButtonSegment(
-                          value: ThemeMode.system,
-                          label: Text(I18n.t(context, 'system')),
-                        ),
-                        ButtonSegment(
-                          value: ThemeMode.light,
-                          label: Text(I18n.t(context, 'light')),
-                        ),
-                        ButtonSegment(
-                          value: ThemeMode.dark,
-                          label: Text(I18n.t(context, 'dark')),
-                        ),
-                      ],
-                      selected: <ThemeMode>{controller.themeMode},
-                    onSelectionChanged: (value) {
-                      if (value.isEmpty) return;
-                      controller.setThemeMode(value.first);
-                    },
-                    )
-                  else
+                  if (controller.themePreference == ThemePreference.scheduled) ...[
+                    const SizedBox(height: 16),
                     _ScheduleRow(
                       start: controller.scheduledStart,
                       end: controller.scheduledEnd,
                       onStartTap: () => _pickSchedule(context, controller, true),
                       onEndTap: () => _pickSchedule(context, controller, false),
                     ),
+                  ],
                   const SizedBox(height: 16),
                   SwitchListTile.adaptive(
                     contentPadding: EdgeInsets.zero,

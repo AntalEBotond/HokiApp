@@ -1063,7 +1063,7 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
                                         await _persistDraft();
                                       },
                                       child: Container(
-                                        padding: const EdgeInsets.all(8),
+                                        padding: const EdgeInsets.all(10),
                                         decoration: BoxDecoration(
                                           color: Colors.white.withOpacity(0.08),
                                           borderRadius: BorderRadius.circular(16),
@@ -1075,8 +1075,8 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
                                           ),
                                         ),
                                         child: SizedBox(
-                                          width: 64,
-                                          height: 64,
+                                          width: 78,
+                                          height: 78,
                                           child: sticker.asset != null
                                               ? Image.asset('assets/stickers/${sticker.asset!}', fit: BoxFit.contain)
                                               : Image.network(sticker.url!, fit: BoxFit.contain),
